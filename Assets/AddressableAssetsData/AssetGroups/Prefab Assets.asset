@@ -15,8 +15,18 @@ MonoBehaviour:
   m_GroupName: Prefab Assets
   m_GUID: 1677b0900d8feb54880fbbe9b0ddf258
   m_SerializeEntries:
+  - m_GUID: 1c1838c9402b98a4e9d42d7975ece27e
+    m_Address: Prefabs/UI/Pages/UILoading
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 971f482aab22bf5458b6df3181ebc73d
     m_Address: Prefabs/UI/Pages/UIStart
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c83fea57eb0f3c440b57ba9918841cee
+    m_Address: Prefabs/UI/Pages/UIMain
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

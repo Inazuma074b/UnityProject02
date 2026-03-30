@@ -10,8 +10,12 @@ public class DataManager : MonoBehaviorSingleton<DataManager>
     public static string GetLocale() { return gameSettings.Locale; }        // Localization string, ex: fr-FR, es-ES, de-DE, it-IT
     public static bool GetEnableBGM() { return gameSettings.EnableBGM; }    // Enable/Disable background music.
     public static bool GetEnableSFX() { return gameSettings.EnableSFX; }    // Enable/Disable sound effects.
+    public static bool GetEnableBGS() { return gameSettings.EnableBGS; }    // Enable/Disable background sounds.
+    public static bool GetEnableME() { return gameSettings.EnableME; }      // Enable/Disable music effects.
     public static float GetBGMVolume() { return gameSettings.BGMVolume; }   // Volume of the background music; between 0f ~ 1.0f.
     public static float GetSFXVolume() { return gameSettings.SFXVolume; }   // Volume of the sound effects; between 0f ~ 1.0f.
+    public static float GetBGSVolume() { return gameSettings.BGSVolume; }   // Volume of the background sounds; between 0f ~ 1.0f.
+    public static float GetMEVolume() { return gameSettings.MEVolume; }     // Volume of the music effects; between 0f ~ 1.0f.
 
 
 
@@ -80,6 +84,10 @@ public class DataManager : MonoBehaviorSingleton<DataManager>
         settings.BGMVolume = 0.1f;
         settings.EnableSFX = true;
         settings.SFXVolume = 1.0f;
+        settings.EnableBGS = true;
+        settings.BGSVolume = 1.0f;
+        settings.EnableME = true;
+        settings.MEVolume = 1.0f;
         return settings;
     }
     #endregion
@@ -91,6 +99,10 @@ public class GameSettings
     public string Locale;                       // Localization string, ex: fr-FR, es-ES, de-DE, it-IT
     public bool EnableBGM;                      // Enable/Disable background music.
     public bool EnableSFX;                    // Enable/Disable sound effects.
+    public bool EnableBGS;                    // Enable/Disable background sounds.
+    public bool EnableME;                     // Enable/Disable music effects.
     public float BGMVolume;                     // Volume of the background music; between 0f ~ 1.0f.
     public float SFXVolume;                     // Volume of the sound effects; between 0f ~ 1.0f.
+    public float BGSVolume;                     // Volume of the background sounds; between 0f ~ 1.0f.
+    public float MEVolume;                      // Volume of the music effects; between 0f ~ 1.0f.
 }

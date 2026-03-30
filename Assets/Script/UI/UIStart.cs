@@ -4,31 +4,27 @@ using UnityEngine.UI;
 
 public class UIStart : UIBase
 {
-    public Button TestButton;
+    public Button BtnStart;
     protected override void OnShow(params object[] Objects)
     {
-        AudioManager.Instance.PlayBGM(Constants.bgm01);
-
-        TestButton.onClick.AddListener(OnTestButton);
-
-        Test();
+        BtnStart.onClick.AddListener(OnBtnStart);
     }
 
     // Update is called once per frame
     protected override void OnClose()
     {
-        TestButton.onClick.RemoveAllListeners();
+        BtnStart.onClick.RemoveAllListeners();
     }
     
-    public void Test()
+    private void OnBtnStart()
     {
+        AudioManager.Instance.Play(AudioType.sfx, Constants.sfx01);
+        LoadGameScene();
     }
 
-    private void OnTestButton()
+    private async void LoadGameScene()
     {
-        AudioManager.Instance.PlaySFX(Constants.sfx01);
-
+        Debug.Log("Load GameScene.");
+        await GameSceneManager.Instance.LoadLevelAsync(Constants.GameScene);
     }
-
-
 }

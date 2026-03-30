@@ -1,6 +1,9 @@
+using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.Events;
@@ -8,9 +11,10 @@ using UnityEngine.Events;
 public class AudioManager : MonoBehaviorSingleton<AudioManager>
 {
     public AudioSource audioSource_bgm;
-    public GameObject audioSource_sfx_root;
-    //public AudioSource curPlayAudio { get; private set; }
-    private List<AudioSource> audioSources_sfx_list;
+
+    private List<AudioSource> audioSources_bgs_pool;
+    private List<AudioSource> audioSources_sfx_pool;
+    private List<AudioSource> audioSources_me_pool;
 
     #region MonoBehaviour
     private void OnEnable()
@@ -27,9 +31,47 @@ public class AudioManager : MonoBehaviorSingleton<AudioManager>
     }
     #endregion
 
+    public void Play(AudioType type, string name, bool isLoop = false, Transform obj = null, Action<AudioSource> callback = null)
+    {
+        switch (type) 
+        {
+            case AudioType.bgm:
+                PlayBGM(name);
+                break;
+            case AudioType.bgs:
+                PlayBGS(name, isLoop, obj, callback);
+                break;
+            case AudioType.me:
+                PlayME(name, obj);
+                break;
+            case AudioType.sfx:
+                PlaySFX(name, obj);
+                break;
+        }
+    }
+
+    public void StopAllByType(AudioType type)
+    {
+        switch (type)
+        {
+            case AudioType.bgm:
+                StopBGM();
+                break;
+            case AudioType.bgs:
+                StopAllBGS();
+                break;
+            case AudioType.me:
+                StopAllME();
+                break;
+            case AudioType.sfx:
+                StopAllSFX();
+                break;
+        }
+    }
+
 
     #region BGM
-    public async void PlayBGM(string bgm)
+    private async void PlayBGM(string bgm)
     {
         if (audioSource_bgm == null)
         {
@@ -57,18 +99,117 @@ public class AudioManager : MonoBehaviorSingleton<AudioManager>
         audioSource_bgm.Play(0);
     }
 
-    public void StopBGM()
+    private void StopBGM()
     {
-        if (audioSource_bgm.isPlaying) audioSource_bgm.Stop();
+        if (audioSource_bgm != null && audioSource_bgm.isPlaying) audioSource_bgm.Stop();
+    }
+    #endregion
+
+
+    #region BGS
+    private async void PlayBGS(string bgs_name, bool isLoop, Transform obj, Action<AudioSource> callback)
+    {
+        if (audioSources_bgs_pool == null) audioSources_bgs_pool = new List<AudioSource>();
+
+        string path = System.IO.Path.Combine(Constants.BGS_Path, bgs_name).Replace("\\", "/");
+        AudioClip audioClip = await ResourceManager.Instance.LoadResourceAsync<AudioClip>(path);
+
+        if (audioClip == null)
+        {
+            Debug.LogWarning("Audio files doesn't exist:" + path);
+            return;
+        }
+
+        AudioSource audioSource = GetAvailableAudioGameObject(AudioType.bgs);
+        
+        // 確保位置與層級正確
+        if (obj != null)
+        {
+            audioSource.transform.SetParent(obj);
+            audioSource.transform.localPosition = Vector3.zero; // 確保在目標物中心播放
+            audioSource.spatialBlend = 1.0f; // 開啟 3D 音效感
+        }
+        else
+        {
+            audioSource.transform.SetParent(this.transform);
+            audioSource.spatialBlend = 0.0f; // 回歸 2D 背景音感
+        }
+
+        audioSource.clip = audioClip;
+        audioSource.volume = DataManager.GetBGSVolume();
+        audioSource.loop = isLoop;
+        audioSource.Play(0);
+
+        if (!isLoop)
+        {
+            StartCoroutine(AudioPlayFinished(audioSource, () => {
+                if (audioSource != null) StopAudio(audioSource);
+            }));
+        }
+
+        callback(audioSource);
+    }
+
+    private void StopAllBGS()
+    {
+        if (audioSources_bgs_pool == null) return;
+        foreach (AudioSource au in audioSources_bgs_pool)
+            StopAudio(au);
+    }
+    #endregion
+
+
+    #region ME
+    private async void PlayME(string me_name, Transform obj = null)
+    {
+        if (audioSources_me_pool == null) audioSources_me_pool = new List<AudioSource>();
+
+        string path = System.IO.Path.Combine(Constants.ME_Path, me_name).Replace("\\", "/");
+        AudioClip audioClip = await ResourceManager.Instance.LoadResourceAsync<AudioClip>(path);
+
+        if (audioClip == null)
+        {
+            Debug.LogWarning("Audio files doesn't exist:" + path);
+            return;
+        }
+
+        AudioSource audioSource = GetAvailableAudioGameObject(AudioType.me);
+        // 確保位置與層級正確
+        if (obj != null)
+        {
+            audioSource.transform.SetParent(obj);
+            audioSource.transform.localPosition = Vector3.zero; // 確保在目標物中心播放
+            audioSource.spatialBlend = 1.0f; // 開啟 3D 音效感
+        }
+        else
+        {
+            audioSource.transform.SetParent(this.transform);
+            audioSource.spatialBlend = 0.0f; // 回歸 2D 背景音感
+        }
+
+        audioSource.clip = audioClip;
+        audioSource.volume = DataManager.GetMEVolume();
+        audioSource.loop = false;
+        audioSource.Play(0);
+
+        StartCoroutine(AudioPlayFinished(audioSource, () => {
+            if (audioSource != null) StopAudio(audioSource);
+        }));
+    }
+
+    private void StopAllME()
+    {
+        if (audioSources_me_pool == null) return;
+        foreach (AudioSource au in audioSources_me_pool)
+            StopAudio(au);
     }
     #endregion
 
 
     #region SFX
-    public async void PlaySFX(string sfx_name, GameObject obj = null)
+    private async void PlaySFX(string sfx_name, Transform obj = null)
     {
-        if (audioSources_sfx_list == null) audioSources_sfx_list = new List<AudioSource>();
-        if (audioSource_sfx_root == null) audioSource_sfx_root = new("audioSource_sfx_root");
+        if (audioSources_sfx_pool == null) audioSources_sfx_pool = new List<AudioSource>();
 
         string path = System.IO.Path.Combine(Constants.SFX_Path, sfx_name).Replace("\\", "/");
         AudioClip audioClip = await ResourceManager.Instance.LoadResourceAsync<AudioClip>(path);
@@ -79,100 +220,123 @@ public class AudioManager : MonoBehaviorSingleton<AudioManager>
             return;
         }
 
-        AudioSource audioSource;
-        if (obj == null) audioSource = audioSource_sfx_root.AddComponent<AudioSource>();
-        else audioSource = obj.AddComponent<AudioSource>();
+        AudioSource audioSource = GetAvailableAudioGameObject(AudioType.sfx);
+        // 確保位置與層級正確
+        if (obj != null)
+        {
+            audioSource.transform.SetParent(obj);
+            audioSource.transform.localPosition = Vector3.zero; // 確保在目標物中心播放
+            audioSource.spatialBlend = 1.0f; // 開啟 3D 音效感
+        }
+        else
+        {
+            audioSource.transform.SetParent(this.transform);
+            audioSource.spatialBlend = 0.0f; // 回歸 2D 背景音感
+        }
 
-        audioSources_sfx_list.Add(audioSource);
         audioSource.clip = audioClip;
         audioSource.volume = DataManager.GetSFXVolume();
         audioSource.loop = false;
         audioSource.Play(0);
 
-        StartCoroutine(AudioPlayFinished(audioSource.clip.length, () => {
-            StopSFX(audioSource);
+        StartCoroutine(AudioPlayFinished(audioSource, () => {
+            if (audioSource != null) StopAudio(audioSource);
         }));
     }
 
-    public void StopSFX(AudioSource a)
+    private void StopAllSFX()
     {
-        if (a != null && a.isPlaying) a.Stop();
-        audioSources_sfx_list.Remove(a);
-        Destroy(a);
-    }
-
-    public void StopAllSFX()
-    {
-        while (audioSources_sfx_list.Count > 0)
-            Instance.StopSFX(audioSources_sfx_list[0]);
+        if (audioSources_sfx_pool == null) return;
+        foreach (AudioSource au in audioSources_sfx_pool)
+            StopAudio(au);
     }
 
     #endregion
-    
-    /*
-    public bool Play(string name, AudioType audioType, AudioSource audioSource, bool isLoop = false)
-    {
-        string path = audioType switch
-        {
-            AudioType.BGM => System.IO.Path.Combine(Constants.Music_Path, name).Replace("\\", "/"),
-            AudioType.SFX => System.IO.Path.Combine(Constants.SFX_Path, name).Replace("\\", "/"),
-            _ => ""
-        };
-        AudioClip audioClip = Resources.Load(path) as AudioClip;
-        if (audioClip != null)
-        {
-            Play(audioSource, audioClip, audioType, isLoop);
-            return true;
-        }
-        else
-        {
-            Debug.LogWarning("Audio files doesn't exist:" + path);
-            return false;
-        }
-    }
-
-    private void Play(AudioSource source, AudioClip clip, AudioType audioType, bool isLoop = false)
-    {
-        source.volume = audioType switch
-        {
-            AudioType.BGM => DataManager.GameSettings.BGMVolume,
-            AudioType.SFX => DataManager.GameSettings.SFXVolume,
-            _ => 1.0f,
-        };
-        source.clip = clip;
-        source.loop = isLoop;
-        source.Play(0);
-
-    }
-
-    */
    
     #region Misc
-    public void ResetAudioSourceGameObject()
+    private void ResetAudioSourceGameObject()
     {
         //BGM
-        var find_audioSource_bgm = GameObject.Find(Constants.BgmAudioSource_Path);
-        if (find_audioSource_bgm == null)
+        if (audioSource_bgm == null)
         {
-            Type[] ty = new Type[] { typeof(AudioSource) };
-            GameObject o = new("audioSource_bgm", ty);
-            audioSource_bgm = o.GetComponent<AudioSource>();
-        }
-        else
-        {
-            audioSource_bgm = find_audioSource_bgm.GetComponent<AudioSource>();
-            if (audioSource_bgm == null) audioSource_bgm = find_audioSource_bgm.AddComponent<AudioSource>();
+            var find_audioSource_bgm = GameObject.Find(Constants.BgmAudioSource_Path);
+            if (find_audioSource_bgm == null)
+            {
+                Type[] ty = new Type[] { typeof(AudioSource) };
+                GameObject o = new(Constants.BgmAudioSource_Path, ty);
+                audioSource_bgm = o.GetComponent<AudioSource>();
+            }
+            else
+            {
+                if(!find_audioSource_bgm.TryGetComponent<AudioSource>(out audioSource_bgm))
+                    audioSource_bgm = find_audioSource_bgm.AddComponent<AudioSource>();
+            }
         }
     }
 
-    private IEnumerator AudioPlayFinished(float time, UnityAction callback)
+    private AudioSource GetAvailableAudioGameObject(AudioType type)
     {
-        yield return new WaitForSeconds(time);
-        callback.Invoke();
+        // 根據 type 決定要跑哪一個 list
+        List<AudioSource> targetList = type switch
+        {
+            AudioType.bgs => audioSources_bgs_pool,
+            AudioType.sfx => audioSources_sfx_pool,
+            AudioType.me => audioSources_me_pool,
+            _ => null
+        };
+        if (targetList == null) return null;
+        // 尋找閒置中的物件
+        for (int i = targetList.Count - 1; i >= 0; i--)
+        {
+            // 清理掉被 Destroy 的殘值
+            if (targetList[i] == null)
+            {
+                targetList.RemoveAt(i);
+                continue;
+            }
+            if (!targetList[i].isPlaying)
+            {
+                return targetList[i];
+            }
+
+        }
+
+        // 找不到則新建一個 GameObject 並掛上 AudioSource
+        GameObject go = new GameObject($"AudioSource_{type}_{targetList.Count}");
+        go.transform.SetParent(this.transform);
+        AudioSource newAu = go.AddComponent<AudioSource>();
+        targetList.Add(newAu);
+        return newAu;
+    }
+
+    private void StopAudio(AudioSource a)
+    {
+        if (a != null)
+        {
+            if (a.isPlaying) a.Stop();
+            if (a.transform.parent != this.transform) a.transform.SetParent(this.transform);
+        }
+    }
+
+
+
+    private IEnumerator AudioPlayFinished(AudioSource au, UnityAction callback)
+    {
+        // 先等一幀，確保 isPlaying 狀態已更新
+        yield return null;
+        // 等到播放結束
+        while (au != null && au.isPlaying) yield return null;
+        // 確保物件還在才執行回調
+        if (au != null) callback?.Invoke();
     }
 
 
     #endregion
+
+
+
+
+
 
     #region
     public void test1()
@@ -190,3 +354,13 @@ public class AudioManager : MonoBehaviorSingleton<AudioManager>
 
 
 }
+
+#region Enum
+public enum AudioType
+{
+    bgm,
+    bgs,
+    sfx,
+    me
+}
+#endregion
